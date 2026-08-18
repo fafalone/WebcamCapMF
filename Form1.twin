@@ -327,6 +327,32 @@ Private Sub lstResolutions_DblClick() Handles lstResolutions.DblClick
         MsgBox("Failed to start stream at " & selectedText)
     End If
 End Sub
+
+Private Sub Command1_Click() Handles Command1.Click
+    Dim fsd As FileSaveDialog
+    Set fsd = New FileSaveDialog
+    
+    Dim tFilt As COMDLG_FILTERSPEC
+    tFilt.pszName = StrPtr("Bitmap")
+    tFilt.pszSpec = StrPtr("*.bmp")
+    
+    fsd.SetTitle("Save bitmap as...")
+    fsd.SetFileTypes(1, VarPtr(tFilt))
+    fsd.SetFileTypeIndex(0)
+    fsd.SetDefaultExtension(".bmp")
+    fsd.SetOptions(FOS_STRICTFILETYPES)
+    On Error Resume Next
+    fsd.Show(Me.hWnd)
+    Dim siRes As IShellItem
+    fsd.GetResult(siRes)
+    If siRes IsNot Nothing Then
+        Dim lpPath As LongPtr
+        siRes.GetDisplayName(SIGDN_FILESYSPATH, lpPath)
+        If lpPath Then
+            Text1.Text = LPWSTRtoStr(lpPath)
+        End If
+    End If
+End Sub
  
  
  
