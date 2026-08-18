@@ -10,6 +10,15 @@ Class Form1
     Private m_activeDeviceIndex As Long
     Private m_capturedFrameBytes() As Byte
     Private m_capturedWidth As Long, m_capturedHeight As Long
+    
+    Private Type tModes
+        cx As Long
+        cy As Long
+        fmt As UUID
+    End Type
+    Private m_Modes() As tModes
+    Private m_cntModes As Long
+    
 
     Private Const SUBCLASS_ID_WEBCAM As LongPtr = 1001
     Private Const WM_MF_FRAMEREADY As Long = &H8001&   ' arbitrary WM_APP+ value, define once app-wide
@@ -58,6 +67,7 @@ Class Form1
         CoTaskMemFree(ppDevices)   ' free the enumeration array itself, once, after the loop
         Return True
     End Function
+ 
     Public Function EnumerateResolutions(deviceIndex As Long, lstResolutions As ListBox) As Boolean
         If deviceIndex < 0 Or deviceIndex > UBound(m_pActivateDevices) Then Return False
 
@@ -65,8 +75,11 @@ Class Form1
         Dim pReader As IMFSourceReader
         Dim hr As Long
 
-        m_pActivateDevices(deviceIndex).ActivateObject(IID_IMFMediaSource, pMediaSource)
-        If hr < 0 Then Return False
+        m_cntModes = 0
+        Erase m_Modes
+
+          m_pActivateDevices(deviceIndex).ActivateObject(IID_IMFMediaSource, pMediaSource)
+        If Err.ReturnHResult < 0 Then Return False
 
         hr = MFCreateSourceReaderFromMediaSource(pMediaSource, Nothing, pReader)
         If hr < 0 Then
@@ -80,34 +93,56 @@ Class Form1
         Dim pType As IMFMediaType
         Dim frameSize As LongLong
         Dim seenSizes As New Collection
+
         On Error Resume Next
+
         i = 0
         Do
             Set pType = pReader.GetNativeMediaType(MF_SOURCE_READER_FIRST_VIDEO_STREAM, i)
             If Err.LastHresult < 0 Then Exit Do
 
             frameSize = pType.GetUInt64(MF_MT_FRAME_SIZE)
+
+            Dim st As UUID
+            st = pType.GetGUID(MF_MT_SUBTYPE)
+
             If Err.LastHresult >= 0 Then
-                Dim w As Long, h As Long
+                Dim w As Long
+                Dim h As Long
+
                 w = CLng(frameSize >> 32)
                 h = CLng(frameSize Mod 4294967296)
 
                 Dim key As String
                 key = w & "x" & h
 
+
                 If Not seenSizes.Exists(key) Then
-                    seenSizes.Add(True, key)
-                    lstResolutions.AddItem(key)
+                    seenSizes.Add True, key
+
+                    ReDim Preserve m_Modes(0 To m_cntModes)
+
+                    m_Modes(m_cntModes).cx = w
+                    m_Modes(m_cntModes).cy = h
+                    m_Modes(m_cntModes).fmt = st
+
+                    m_cntModes = m_cntModes + 1
+
+                    lstResolutions.AddItem key
                 End If
             End If
 
             i = i + 1
         Loop
 
+        On Error GoTo 0
+
         ' pMediaSource.Shutdown()
         m_pActivateDevices(deviceIndex).ShutdownObject()
+
         Return lstResolutions.ListCount > 0
     End Function
+    
     Private Sub Form_Load() Handles Form.Load
         EnumerateWebcams
         SetWindowSubclass(Picture1.hWnd, AddressOf WebcamSubclassProc, SUBCLASS_ID_WEBCAM, 0)
@@ -126,22 +161,104 @@ Class Form1
         End If
     End Sub
     
+    ' Public Function StartWebcamStream(deviceIndex As Long, pichwnd As LongPtr, targetWidth As Long, targetHeight As Long) As Boolean
+    '     Dim hr As Long
+    '     Dim pAttributes As IMFAttributes
+    '     If deviceIndex < 0 Or deviceIndex > UBound(m_pActivateDevices) Then Return False
+    '     If m_pSourceReader IsNot Nothing Then StopWebcamStream()
+    '     m_pActivateDevices(deviceIndex).ActivateObject(IID_IMFMediaSource, m_pMediaSource)
+    '     If hr < 0 Then Return False
+    '     m_activeDeviceIndex = deviceIndex
+    '     Set m_pReaderCallback = New CSourceReaderCallback
+        
+    '     hr = MFCreateAttributes(pAttributes, 1)
+    '     If hr < 0 Then Return False
+    '     pAttributes.SetUINT32(MF_SOURCE_READER_DISABLE_DXVA, 1)
+    '     pAttributes.SetUnknown(MF_SOURCE_READER_ASYNC_CALLBACK, m_pReaderCallback)
+    '     pAttributes.SetUINT32(MF_SOURCE_READER_ENABLE_VIDEO_PROCESSING, 1)
+    
+    '     hr = MFCreateSourceReaderFromMediaSource(m_pMediaSource, pAttributes, m_pSourceReader)
+    '     If hr < 0 Then Return False
+
+    '     Dim i As Long
+    '     Dim pNativeType As IMFMediaType
+    '     Dim pChosenType As IMFMediaType
+    '     Dim frameSize As LongLong
+    '     Dim found As Boolean
+    '     On Error Resume Next
+    '     i = 0
+    '     Do
+    '         Set pNativeType = m_pSourceReader.GetNativeMediaType(MF_SOURCE_READER_FIRST_VIDEO_STREAM, i)
+    '         If Err.ReturnHResult < 0 Then Exit Do
+
+    '         frameSize = pNativeType.GetUInt64(MF_MT_FRAME_SIZE)
+    '         If Err.ReturnHResult >= 0 Then
+    '             If CLng(frameSize >> 32) = targetWidth And CLng(frameSize Mod 4294967296) = targetHeight Then
+    '                 Set pChosenType = pNativeType
+    '                 found = True
+    '                 Exit Do
+    '             End If
+    '         End If
+
+    '         i = i + 1
+    '     Loop
+
+    '     If Not found Then Return False
+
+    '     Dim pMediaType As IMFMediaType
+    '     hr = MFCreateMediaType(pMediaType)
+    '     If hr < 0 Then Return False
+        
+    '     pChosenType.CopyAllItems(pMediaType)
+    '     m_pSourceReader.SetCurrentMediaType(MF_SOURCE_READER_FIRST_VIDEO_STREAM, 0, pMediaType)
+    '     If Err.ReturnHResult < 0 Then Return False
+        
+    '     Dim pActualType As IMFMediaType
+    '     Set pActualType = m_pSourceReader.GetCurrentMediaType(MF_SOURCE_READER_FIRST_VIDEO_STREAM)
+    '     If Err.ReturnHResult < 0 Then Return False
+        
+    '     frameSize = pActualType.GetUInt64(MF_MT_FRAME_SIZE)
+    '     If Err.ReturnHResult < 0 Then Return False
+    '     Dim videoWidth As Long, videoHeight As Long
+    '     videoWidth = CLng(frameSize >> 32)
+    '     videoHeight = CLng(frameSize Mod 4294967296)
+    '     m_pReaderCallback.Initialize(m_pSourceReader, pichwnd, videoWidth, videoHeight, _
+    '                                   videoWidth * 4)
+    '     m_pSourceReader.SetStreamSelection(MF_SOURCE_READER_FIRST_VIDEO_STREAM, 1)
+ 
+    
+    '     On Error Resume Next
+    '     m_pSourceReader.ReadSample(MF_SOURCE_READER_FIRST_VIDEO_STREAM, 0, ByVal 0&, ByVal 0&, ByVal vbNullPtr, ByVal Nothing)
+    '     Debug.Print Hex$(Err.LastHresult)
+    '     If Err.ReturnHResult < 0 Then Return False
+    '     Return True
+    ' End Function
     Public Function StartWebcamStream(deviceIndex As Long, pichwnd As LongPtr, targetWidth As Long, targetHeight As Long) As Boolean
         Dim hr As Long
         Dim pAttributes As IMFAttributes
+
         If deviceIndex < 0 Or deviceIndex > UBound(m_pActivateDevices) Then Return False
         If m_pSourceReader IsNot Nothing Then StopWebcamStream()
+
         m_pActivateDevices(deviceIndex).ActivateObject(IID_IMFMediaSource, m_pMediaSource)
+        hr = Err.LastHresult
         If hr < 0 Then Return False
+
         m_activeDeviceIndex = deviceIndex
         Set m_pReaderCallback = New CSourceReaderCallback
-        
+
         hr = MFCreateAttributes(pAttributes, 1)
         If hr < 0 Then Return False
+
         pAttributes.SetUINT32(MF_SOURCE_READER_DISABLE_DXVA, 1)
+        If Err.ReturnHResult < 0 Then Return False
+
         pAttributes.SetUnknown(MF_SOURCE_READER_ASYNC_CALLBACK, m_pReaderCallback)
+        If Err.ReturnHResult < 0 Then Return False
+
         pAttributes.SetUINT32(MF_SOURCE_READER_ENABLE_VIDEO_PROCESSING, 1)
-    
+        If Err.ReturnHResult < 0 Then Return False
+
         hr = MFCreateSourceReaderFromMediaSource(m_pMediaSource, pAttributes, m_pSourceReader)
         If hr < 0 Then Return False
 
@@ -150,7 +267,9 @@ Class Form1
         Dim pChosenType As IMFMediaType
         Dim frameSize As LongLong
         Dim found As Boolean
+
         On Error Resume Next
+
         i = 0
         Do
             Set pNativeType = m_pSourceReader.GetNativeMediaType(MF_SOURCE_READER_FIRST_VIDEO_STREAM, i)
@@ -158,7 +277,13 @@ Class Form1
 
             frameSize = pNativeType.GetUInt64(MF_MT_FRAME_SIZE)
             If Err.ReturnHResult >= 0 Then
-                If CLng(frameSize >> 32) = targetWidth And CLng(frameSize Mod 4294967296) = targetHeight Then
+                Dim nativeWidth As Long
+                Dim nativeHeight As Long
+
+                nativeWidth = CLng(frameSize >> 32)
+                nativeHeight = CLng(frameSize Mod 4294967296)
+
+                If nativeWidth = targetWidth And nativeHeight = targetHeight Then
                     Set pChosenType = pNativeType
                     found = True
                     Exit Do
@@ -170,36 +295,73 @@ Class Form1
 
         If Not found Then Return False
 
-        Dim pMediaType As IMFMediaType
-        hr = MFCreateMediaType(pMediaType)
+        ' First select the native camera mode.
+        ' Do not pass pChosenType itself to the driver.
+        Dim pNativeSelected As IMFMediaType
+
+        hr = MFCreateMediaType(pNativeSelected)
         If hr < 0 Then Return False
-        
-        pChosenType.CopyAllItems(pMediaType)
-        pMediaType.SetGuid(MF_MT_SUBTYPE, MFVideoFormat_RGB32)
-        m_pSourceReader.SetCurrentMediaType(MF_SOURCE_READER_FIRST_VIDEO_STREAM, 0, pMediaType)
+
+         pChosenType.CopyAllItems(pNativeSelected)
         If Err.ReturnHResult < 0 Then Return False
-        
+
+        m_pSourceReader.SetCurrentMediaType(MF_SOURCE_READER_FIRST_VIDEO_STREAM, 0, pNativeSelected)
+        If Err.ReturnHResult < 0 Then Return False
+
+        ' Now request RGB32 output at the same resolution.
+        Dim pRGBType As IMFMediaType
+
+        hr = MFCreateMediaType(pRGBType)
+        If hr < 0 Then Return False
+
+        pRGBType.SetGuid(MF_MT_MAJOR_TYPE, MFMediaType_Video)
+        If Err.ReturnHResult < 0 Then Return False
+
+        pRGBType.SetGuid(MF_MT_SUBTYPE, MFVideoFormat_RGB32)
+        If Err.ReturnHResult < 0 Then Return False
+
+        pRGBType.SetUINT64(MF_MT_FRAME_SIZE, frameSize)
+        If Err.ReturnHResult < 0 Then Return False
+
+        m_pSourceReader.SetCurrentMediaType(MF_SOURCE_READER_FIRST_VIDEO_STREAM, 0, pRGBType)
+        If Err.ReturnHResult < 0 Then Return False
+
+        ' Verify what the Source Reader actually accepted.
         Dim pActualType As IMFMediaType
+
         Set pActualType = m_pSourceReader.GetCurrentMediaType(MF_SOURCE_READER_FIRST_VIDEO_STREAM)
         If Err.ReturnHResult < 0 Then Return False
-        
+
         frameSize = pActualType.GetUInt64(MF_MT_FRAME_SIZE)
         If Err.ReturnHResult < 0 Then Return False
-        Dim videoWidth As Long, videoHeight As Long
+
+        Dim videoWidth As Long
+        Dim videoHeight As Long
+
         videoWidth = CLng(frameSize >> 32)
         videoHeight = CLng(frameSize Mod 4294967296)
-        m_pReaderCallback.Initialize(m_pSourceReader, pichwnd, videoWidth, videoHeight, _
-                                      videoWidth * 4)
-        m_pSourceReader.SetStreamSelection(MF_SOURCE_READER_FIRST_VIDEO_STREAM, 1)
- 
-    
-        On Error Resume Next
-        m_pSourceReader.ReadSample(MF_SOURCE_READER_FIRST_VIDEO_STREAM, 0, ByVal 0&, ByVal 0&, ByVal vbNullPtr, ByVal Nothing)
-        Debug.Print Hex$(Err.LastHresult)
+
+        Debug.Print "Requested: " ; targetWidth ; "x" ; targetHeight
+        Debug.Print "Actual: " ; videoWidth ; "x" ; videoHeight
+        ' Debug.Print "Subtype: " ; dbg_GUIDToString(pActualType.GetGUID(MF_MT_SUBTYPE))
+
+        If videoWidth <> targetWidth Or videoHeight <> targetHeight Then Return False
+
+        m_pReaderCallback.Initialize(m_pSourceReader, pichwnd, videoWidth, videoHeight, videoWidth * 4)
+
+         m_pSourceReader.SetStreamSelection(MF_SOURCE_READER_FIRST_VIDEO_STREAM, 1)
         If Err.ReturnHResult < 0 Then Return False
+
+        m_pSourceReader.ReadSample(MF_SOURCE_READER_FIRST_VIDEO_STREAM, 0, ByVal 0&, ByVal 0&, ByVal vbNullPtr, ByVal Nothing)
+        hr = Err.ReturnHResult
+        On Error GoTo 0
+
+        Debug.Print Hex$(hr)
+
+        If hr < 0 Then Return False
+
         Return True
     End Function
-    
     Public Sub StopWebcamStream()
         If m_pSourceReader IsNot Nothing Then
             Set m_pSourceReader = Nothing
@@ -235,27 +397,13 @@ Class Form1
         bi.bmiHeader.biBitCount = 32
         bi.bmiHeader.biCompression = BI_RGB
 
-        SetDIBitsToDevice(Picture1.hDC, 0, 0, m_pReaderCallback.VideoWidth, m_pReaderCallback.VideoHeight, 0, 0, 0, m_pReaderCallback.VideoHeight, ByVal VarPtr(frameBytes(0)), bi, DIB_RGB_COLORS)
-
+        SetStretchBltMode(Picture1.hDC, HALFTONE)
+        SetBrushOrgEx(Picture1.hDC, 0, 0, ByVal vbNullPtr)
+        StretchDIBits(Picture1.hDC, 0, 0, Picture1.ScaleWidth, Picture1.ScaleHeight, 0, 0, m_pReaderCallback.VideoWidth, m_pReaderCallback.VideoHeight, ByVal VarPtr(frameBytes(0)), bi, DIB_RGB_COLORS, SRCCOPY)
+        
         ' Picture1.Refresh
     End Sub
  
-    ' Private Sub cmdCapture_Click()
-    '     Dim frameBytes() As Byte
-    '     If Not m_pReaderCallback.GetLatestFrame(frameBytes) Then Return
-
-    '     Dim bi As BITMAPINFO
-    '     bi.bmiHeader.biSize = LenB(Of BITMAPINFOHEADER)
-    '     bi.bmiHeader.biWidth = m_pReaderCallback.VideoWidth
-    '     bi.bmiHeader.biHeight = -m_pReaderCallback.VideoHeight
-    '     bi.bmiHeader.biPlanes = 1
-    '     bi.bmiHeader.biBitCount = 32
-    '     bi.bmiHeader.biCompression = BI_RGB
-
-    '     SetDIBitsToDevice(Picture2.hDC, 0, 0, m_pReaderCallback.VideoWidth, m_pReaderCallback.VideoHeight, 0, 0, 0, m_pReaderCallback.VideoHeight, ByVal VarPtr(frameBytes(0)), bi, DIB_RGB_COLORS)
-
-    '     ' Picture2.Refresh
-    ' End Sub
     Private Sub cmdCapture_Click()
         Dim frameBytes() As Byte
         If Not m_pReaderCallback.GetLatestFrame(frameBytes) Then Return
@@ -269,7 +417,9 @@ Class Form1
         bi.bmiHeader.biBitCount = 32
         bi.bmiHeader.biCompression = BI_RGB
 
-        SetDIBitsToDevice(Picture2.hDC, 0, 0, m_pReaderCallback.VideoWidth, m_pReaderCallback.VideoHeight, 0, 0, 0, m_pReaderCallback.VideoHeight, ByVal VarPtr(frameBytes(0)), bi, DIB_RGB_COLORS)
+        SetStretchBltMode(Picture2.hDC, HALFTONE)
+        SetBrushOrgEx(Picture2.hDC, 0, 0, ByVal vbNullPtr)
+        StretchDIBits(Picture2.hDC, 0, 0, Picture2.ScaleWidth, Picture2.ScaleHeight, 0, 0, m_pReaderCallback.VideoWidth, m_pReaderCallback.VideoHeight, ByVal VarPtr(frameBytes(0)), bi, DIB_RGB_COLORS, SRCCOPY)
         ' m_capturePic.Refresh
 
         ' Hold onto the full-resolution bytes for saving later, independent of PictureBox size
@@ -287,7 +437,7 @@ Public Function SaveCapturedFrame(destPath As String) As Boolean
     Dim bi As BITMAPINFOHEADER
     bi.biSize = LenB(Of BITMAPINFOHEADER)
     bi.biWidth = m_capturedWidth
-    bi.biHeight = m_capturedHeight   ' positive: standard bottom-up BMP file order
+    bi.biHeight = -m_capturedHeight   ' positive: standard bottom-up BMP file order
     bi.biPlanes = 1
     bi.biBitCount = 32
     bi.biCompression = BI_RGB
