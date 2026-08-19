@@ -74,12 +74,13 @@ Class Form1
         Dim pMediaSource As IMFMediaSource
         Dim pReader As IMFSourceReader
         Dim hr As Long
+        On Error Resume Next
 
         m_cntModes = 0
         Erase m_Modes
 
           m_pActivateDevices(deviceIndex).ActivateObject(IID_IMFMediaSource, pMediaSource)
-        If Err.ReturnHResult < 0 Then Return False
+        If Err.LastHresult < 0 Then Return False
 
         hr = MFCreateSourceReaderFromMediaSource(pMediaSource, Nothing, pReader)
         If hr < 0 Then
@@ -160,79 +161,7 @@ Class Form1
             EnumerateResolutions(lstCams.ListIndex, lstResolutions)
         End If
     End Sub
-    
-    ' Public Function StartWebcamStream(deviceIndex As Long, pichwnd As LongPtr, targetWidth As Long, targetHeight As Long) As Boolean
-    '     Dim hr As Long
-    '     Dim pAttributes As IMFAttributes
-    '     If deviceIndex < 0 Or deviceIndex > UBound(m_pActivateDevices) Then Return False
-    '     If m_pSourceReader IsNot Nothing Then StopWebcamStream()
-    '     m_pActivateDevices(deviceIndex).ActivateObject(IID_IMFMediaSource, m_pMediaSource)
-    '     If hr < 0 Then Return False
-    '     m_activeDeviceIndex = deviceIndex
-    '     Set m_pReaderCallback = New CSourceReaderCallback
-        
-    '     hr = MFCreateAttributes(pAttributes, 1)
-    '     If hr < 0 Then Return False
-    '     pAttributes.SetUINT32(MF_SOURCE_READER_DISABLE_DXVA, 1)
-    '     pAttributes.SetUnknown(MF_SOURCE_READER_ASYNC_CALLBACK, m_pReaderCallback)
-    '     pAttributes.SetUINT32(MF_SOURCE_READER_ENABLE_VIDEO_PROCESSING, 1)
-    
-    '     hr = MFCreateSourceReaderFromMediaSource(m_pMediaSource, pAttributes, m_pSourceReader)
-    '     If hr < 0 Then Return False
-
-    '     Dim i As Long
-    '     Dim pNativeType As IMFMediaType
-    '     Dim pChosenType As IMFMediaType
-    '     Dim frameSize As LongLong
-    '     Dim found As Boolean
-    '     On Error Resume Next
-    '     i = 0
-    '     Do
-    '         Set pNativeType = m_pSourceReader.GetNativeMediaType(MF_SOURCE_READER_FIRST_VIDEO_STREAM, i)
-    '         If Err.ReturnHResult < 0 Then Exit Do
-
-    '         frameSize = pNativeType.GetUInt64(MF_MT_FRAME_SIZE)
-    '         If Err.ReturnHResult >= 0 Then
-    '             If CLng(frameSize >> 32) = targetWidth And CLng(frameSize Mod 4294967296) = targetHeight Then
-    '                 Set pChosenType = pNativeType
-    '                 found = True
-    '                 Exit Do
-    '             End If
-    '         End If
-
-    '         i = i + 1
-    '     Loop
-
-    '     If Not found Then Return False
-
-    '     Dim pMediaType As IMFMediaType
-    '     hr = MFCreateMediaType(pMediaType)
-    '     If hr < 0 Then Return False
-        
-    '     pChosenType.CopyAllItems(pMediaType)
-    '     m_pSourceReader.SetCurrentMediaType(MF_SOURCE_READER_FIRST_VIDEO_STREAM, 0, pMediaType)
-    '     If Err.ReturnHResult < 0 Then Return False
-        
-    '     Dim pActualType As IMFMediaType
-    '     Set pActualType = m_pSourceReader.GetCurrentMediaType(MF_SOURCE_READER_FIRST_VIDEO_STREAM)
-    '     If Err.ReturnHResult < 0 Then Return False
-        
-    '     frameSize = pActualType.GetUInt64(MF_MT_FRAME_SIZE)
-    '     If Err.ReturnHResult < 0 Then Return False
-    '     Dim videoWidth As Long, videoHeight As Long
-    '     videoWidth = CLng(frameSize >> 32)
-    '     videoHeight = CLng(frameSize Mod 4294967296)
-    '     m_pReaderCallback.Initialize(m_pSourceReader, pichwnd, videoWidth, videoHeight, _
-    '                                   videoWidth * 4)
-    '     m_pSourceReader.SetStreamSelection(MF_SOURCE_READER_FIRST_VIDEO_STREAM, 1)
- 
-    
-    '     On Error Resume Next
-    '     m_pSourceReader.ReadSample(MF_SOURCE_READER_FIRST_VIDEO_STREAM, 0, ByVal 0&, ByVal 0&, ByVal vbNullPtr, ByVal Nothing)
-    '     Debug.Print Hex$(Err.LastHresult)
-    '     If Err.ReturnHResult < 0 Then Return False
-    '     Return True
-    ' End Function
+     
     Public Function StartWebcamStream(deviceIndex As Long, pichwnd As LongPtr, targetWidth As Long, targetHeight As Long) As Boolean
         Dim hr As Long
         Dim pAttributes As IMFAttributes
@@ -251,13 +180,13 @@ Class Form1
         If hr < 0 Then Return False
 
         pAttributes.SetUINT32(MF_SOURCE_READER_DISABLE_DXVA, 1)
-        If Err.ReturnHResult < 0 Then Return False
+        If Err.LastHresult < 0 Then Return False
 
         pAttributes.SetUnknown(MF_SOURCE_READER_ASYNC_CALLBACK, m_pReaderCallback)
-        If Err.ReturnHResult < 0 Then Return False
+        If Err.LastHresult < 0 Then Return False
 
         pAttributes.SetUINT32(MF_SOURCE_READER_ENABLE_VIDEO_PROCESSING, 1)
-        If Err.ReturnHResult < 0 Then Return False
+        If Err.LastHresult < 0 Then Return False
 
         hr = MFCreateSourceReaderFromMediaSource(m_pMediaSource, pAttributes, m_pSourceReader)
         If hr < 0 Then Return False
@@ -273,10 +202,10 @@ Class Form1
         i = 0
         Do
             Set pNativeType = m_pSourceReader.GetNativeMediaType(MF_SOURCE_READER_FIRST_VIDEO_STREAM, i)
-            If Err.ReturnHResult < 0 Then Exit Do
+            If Err.LastHresult < 0 Then Exit Do
 
             frameSize = pNativeType.GetUInt64(MF_MT_FRAME_SIZE)
-            If Err.ReturnHResult >= 0 Then
+            If Err.LastHresult >= 0 Then
                 Dim nativeWidth As Long
                 Dim nativeHeight As Long
 
@@ -303,10 +232,10 @@ Class Form1
         If hr < 0 Then Return False
 
          pChosenType.CopyAllItems(pNativeSelected)
-        If Err.ReturnHResult < 0 Then Return False
+        If Err.LastHresult < 0 Then Return False
 
         m_pSourceReader.SetCurrentMediaType(MF_SOURCE_READER_FIRST_VIDEO_STREAM, 0, pNativeSelected)
-        If Err.ReturnHResult < 0 Then Return False
+        If Err.LastHresult < 0 Then Return False
 
         ' Now request RGB32 output at the same resolution.
         Dim pRGBType As IMFMediaType
@@ -315,25 +244,25 @@ Class Form1
         If hr < 0 Then Return False
 
         pRGBType.SetGuid(MF_MT_MAJOR_TYPE, MFMediaType_Video)
-        If Err.ReturnHResult < 0 Then Return False
+        If Err.LastHresult < 0 Then Return False
 
         pRGBType.SetGuid(MF_MT_SUBTYPE, MFVideoFormat_RGB32)
-        If Err.ReturnHResult < 0 Then Return False
+        If Err.LastHresult < 0 Then Return False
 
         pRGBType.SetUINT64(MF_MT_FRAME_SIZE, frameSize)
-        If Err.ReturnHResult < 0 Then Return False
+        If Err.LastHresult < 0 Then Return False
 
         m_pSourceReader.SetCurrentMediaType(MF_SOURCE_READER_FIRST_VIDEO_STREAM, 0, pRGBType)
-        If Err.ReturnHResult < 0 Then Return False
+        If Err.LastHresult < 0 Then Return False
 
         ' Verify what the Source Reader actually accepted.
         Dim pActualType As IMFMediaType
 
         Set pActualType = m_pSourceReader.GetCurrentMediaType(MF_SOURCE_READER_FIRST_VIDEO_STREAM)
-        If Err.ReturnHResult < 0 Then Return False
+        If Err.LastHresult < 0 Then Return False
 
         frameSize = pActualType.GetUInt64(MF_MT_FRAME_SIZE)
-        If Err.ReturnHResult < 0 Then Return False
+        If Err.LastHresult < 0 Then Return False
 
         Dim videoWidth As Long
         Dim videoHeight As Long
@@ -350,10 +279,15 @@ Class Form1
         m_pReaderCallback.Initialize(m_pSourceReader, pichwnd, videoWidth, videoHeight, videoWidth * 4)
 
          m_pSourceReader.SetStreamSelection(MF_SOURCE_READER_FIRST_VIDEO_STREAM, 1)
-        If Err.ReturnHResult < 0 Then Return False
+        If Err.LastHresult < 0 Then Return False
 
         m_pSourceReader.ReadSample(MF_SOURCE_READER_FIRST_VIDEO_STREAM, 0, ByVal 0&, ByVal 0&, ByVal vbNullPtr, ByVal Nothing)
-        hr = Err.ReturnHResult
+        hr = Err.LastHresult
+        
+        Frame2.Enabled = True
+        Frame3.Enabled = True
+        SetAdjustmentRanges
+        
         On Error GoTo 0
 
         Debug.Print Hex$(hr)
@@ -374,8 +308,193 @@ Class Form1
             m_pActivateDevices(m_activeDeviceIndex).ShutdownObject()
         End If
         Set m_pReaderCallback = Nothing
+        Frame2.Enabled = False
+        Frame3.Enabled = False
     End Sub
     
+    Public Function SetVideoProcAmp(prop As VideoProcAmpProperty, Value As Long) As Boolean
+        Dim pProcAmp As IAMVideoProcAmp
+        Dim hr As Long
+
+        Set pProcAmp = m_pMediaSource
+        If Err.LastHresult < 0 Then Return False
+
+        pProcAmp.Set(prop, Value, VideoProcAmp_Flags_Manual)
+        If Err.LastHresult < 0 Then Return False
+
+        Return True
+    End Function
+    Public Function SetCamControl(prop As CameraControlProperty, Value As Long) As Boolean
+        Dim pcc As IAMCameraControl
+        Set pcc = m_pMediaSource
+        If Err.LastHresult < 0 Then Return False
+
+        pcc.Set(prop, Value, VideoProcAmp_Flags_Manual)
+        If Err.LastHresult < 0 Then Return False
+
+        Return True
+    End Function
+    Public Function SetAdjustmentRanges() As Boolean
+        Dim pProcAmp As IAMVideoProcAmp
+        Dim hr As Long
+        Dim currentFlags As Long
+        Dim minVal As Long, maxVal As Long, stepVal As Long, defaultVal As Long
+        Dim lc As Long
+        On Error Resume Next
+        
+        Set pProcAmp = m_pMediaSource
+        If Err.LastHresult < 0 Then Return False
+
+        pProcAmp.GetRange(VideoProcAmp_Brightness, minVal, maxVal, stepVal, defaultVal, currentFlags)
+        If SUCCEEDED(Err.LastHresult) Then
+            sldBrightness.Enabled = True
+            sldBrightness.Min = minVal
+            sldBrightness.Max = maxVal
+            sldBrightness.Value = defaultVal
+            sldBrightness.SmallChange = stepVal
+            lc = (maxVal - minVal) \ 10
+            If lc < stepVal Then lc = stepVal
+            sldBrightness.LargeChange = If(lc > 1, lc, 1)
+            sldBrightness.TickFrequency = lc
+            SetVideoProcAmp VideoProcAmp_Brightness, defaultVal
+        Else
+            sldBrightness.Enabled = False
+        End If
+
+        pProcAmp.GetRange(VideoProcAmp_Contrast, minVal, maxVal, stepVal, defaultVal, currentFlags)
+        If SUCCEEDED(Err.LastHresult) Then
+            sldContrast.Enabled = True
+            sldContrast.Min = minVal
+            sldContrast.Max = maxVal
+            sldContrast.Value = defaultVal
+            sldContrast.SmallChange = stepVal
+            lc = (maxVal - minVal) \ 10
+            If lc < stepVal Then lc = stepVal
+            sldContrast.LargeChange = If(lc > 1, lc, 1)
+            sldContrast.TickFrequency = lc
+            SetVideoProcAmp VideoProcAmp_Contrast, defaultVal
+        Else
+            sldContrast.Enabled = False
+        End If
+        
+        pProcAmp.GetRange(VideoProcAmp_Saturation, minVal, maxVal, stepVal, defaultVal, currentFlags)
+        If SUCCEEDED(Err.LastHresult) Then
+            sldSaturation.Enabled = True
+            sldSaturation.Min = minVal
+            sldSaturation.Max = maxVal
+            sldSaturation.Value = defaultVal
+            sldSaturation.SmallChange = stepVal
+            lc = (maxVal - minVal) \ 10
+            If lc < stepVal Then lc = stepVal
+            sldSaturation.LargeChange = If(lc > 1, lc, 1)
+            sldSaturation.TickFrequency = lc
+            SetVideoProcAmp VideoProcAmp_Saturation, defaultVal
+        Else
+            sldSaturation.Enabled = False
+        End If
+        
+        pProcAmp.GetRange(VideoProcAmp_Gain, minVal, maxVal, stepVal, defaultVal, currentFlags)
+        If SUCCEEDED(Err.LastHresult) Then
+            sldGain.Enabled = True
+            sldGain.Min = minVal
+            sldGain.Max = maxVal
+            sldGain.Value = defaultVal
+            sldGain.SmallChange = stepVal
+            lc = (maxVal - minVal) \ 10
+            If lc < stepVal Then lc = stepVal
+            sldGain.LargeChange = If(lc > 1, lc, 1)
+            sldGain.TickFrequency = lc
+            SetVideoProcAmp VideoProcAmp_Gain, defaultVal
+        Else
+            sldGain.Enabled = False
+        End If
+        
+        pProcAmp.GetRange(VideoProcAmp_Hue, minVal, maxVal, stepVal, defaultVal, currentFlags)
+        If SUCCEEDED(Err.LastHresult) Then
+            sldHue.Enabled = True
+            sldHue.Min = minVal
+            sldHue.Max = maxVal
+            sldHue.Value = defaultVal
+            sldHue.SmallChange = stepVal
+            lc = (maxVal - minVal) \ 10
+            If lc < stepVal Then lc = stepVal
+            sldHue.LargeChange = If(lc > 1, lc, 1)
+            sldHue.TickFrequency = lc
+            SetVideoProcAmp VideoProcAmp_Hue, defaultVal
+        Else
+            sldHue.Enabled = False
+        End If
+        
+        pProcAmp.GetRange(VideoProcAmp_Sharpness, minVal, maxVal, stepVal, defaultVal, currentFlags)
+        If SUCCEEDED(Err.LastHresult) Then
+            sldSharpness.Enabled = True
+            sldSharpness.Min = minVal
+            sldSharpness.Max = maxVal
+            sldSharpness.Value = defaultVal
+            sldSharpness.SmallChange = stepVal
+            lc = (maxVal - minVal) \ 10
+            If lc < stepVal Then lc = stepVal
+            sldSharpness.LargeChange = If(lc > 1, lc, 1)
+            sldSharpness.TickFrequency = lc
+            SetVideoProcAmp VideoProcAmp_Sharpness, defaultVal
+        Else
+            sldSharpness.Enabled = False
+        End If
+        
+        pProcAmp.GetRange(VideoProcAmp_Gamma, minVal, maxVal, stepVal, defaultVal, currentFlags)
+        If SUCCEEDED(Err.LastHresult) Then
+            sldGamma.Enabled = True
+            sldGamma.Min = minVal
+            sldGamma.Max = maxVal
+            sldGamma.Value = defaultVal
+            sldGamma.SmallChange = stepVal
+            lc = (maxVal - minVal) \ 10
+            If lc < stepVal Then lc = stepVal
+            sldGamma.LargeChange = If(lc > 1, lc, 1)
+            sldGamma.TickFrequency = lc
+            SetVideoProcAmp VideoProcAmp_Gamma, defaultVal
+        Else
+            sldGamma.Enabled = False
+        End If
+        
+        pProcAmp.GetRange(VideoProcAmp_WhiteBalance, minVal, maxVal, stepVal, defaultVal, currentFlags)
+        If SUCCEEDED(Err.LastHresult) Then
+            sldWhiteBalance.Enabled = True
+            sldWhiteBalance.Min = minVal
+            sldWhiteBalance.Max = maxVal
+            sldWhiteBalance.Value = defaultVal
+            sldWhiteBalance.SmallChange = stepVal
+            lc = (maxVal - minVal) \ 10
+            If lc < stepVal Then lc = stepVal
+            sldWhiteBalance.LargeChange = If(lc > 1, lc, 1)
+            sldWhiteBalance.TickFrequency = lc
+            SetVideoProcAmp VideoProcAmp_WhiteBalance, defaultVal
+        Else
+            sldWhiteBalance.Enabled = False
+        End If
+        
+        Dim pcc As IAMCameraControl
+        Set pcc = m_pMediaSource
+        If Err.LastHresult < 0 Then Return False
+        
+        pcc.GetRange(CameraControl_Zoom, minVal, maxVal, stepVal, defaultVal, currentFlags)
+        If SUCCEEDED(Err.LastHresult) Then
+            sldZoom.Enabled = True
+            sldZoom.Min = minVal
+            sldZoom.Max = maxVal
+            sldZoom.Value = defaultVal
+            sldZoom.SmallChange = stepVal
+            lc = (maxVal - minVal) \ 10
+            If lc < stepVal Then lc = stepVal
+            sldZoom.LargeChange = If(lc > 1, lc, 1)
+            sldZoom.TickFrequency = lc
+            SetCamControl CameraControl_Zoom, defaultVal
+        Else
+            sldZoom.Enabled = False
+        End If
+        
+        Return True
+    End Function
     Private Function WebcamSubclassProc(ByVal hWnd As LongPtr, ByVal uMsg As Long, ByVal wParam As LongPtr, ByVal lParam As LongPtr, ByVal uIdSubclass As LongPtr, ByVal dwRefData As LongPtr) As LongPtr
         If uMsg = WM_MF_FRAMEREADY Then
             RenderLatestFrame()
@@ -504,8 +623,42 @@ Private Sub Command1_Click() Handles Command1.Click
     End If
 End Sub
  
+Private Sub sldBrightness_Scroll() Handles sldBrightness.Scroll
+   SetVideoProcAmp VideoProcAmp_Brightness, sldBrightness.Value
+End Sub
  
- 
+Private Sub sldContrast_Scroll() Handles sldContrast.Scroll
+    SetVideoProcAmp VideoProcAmp_Contrast, sldContrast.Value
+End Sub
+
+Private Sub sldSaturation_Scroll() Handles sldSaturation.Scroll
+    SetVideoProcAmp VideoProcAmp_Saturation, sldSaturation.Value
+End Sub
+
+Private Sub sldHue_Scroll() Handles sldHue.Scroll
+    SetVideoProcAmp VideoProcAmp_Hue, sldHue.Value
+End Sub
+
+Private Sub sldGain_Scroll() Handles sldGain.Scroll
+    SetVideoProcAmp VideoProcAmp_Gain, sldGain.Value
+End Sub
+
+Private Sub sldSharpness_Scroll() Handles sldSharpness.Scroll
+    SetVideoProcAmp VideoProcAmp_Sharpness, sldSharpness.Value
+End Sub
+
+Private Sub sldGamma_Scroll() Handles sldGamma.Scroll
+    SetVideoProcAmp VideoProcAmp_Gamma, sldGamma.Value
+End Sub
+
+Private Sub sldWhiteBalance_Scroll() Handles sldWhiteBalance.Scroll
+    SetVideoProcAmp VideoProcAmp_WhiteBalance, sldWhiteBalance.Value
+End Sub
+
+Private Sub sldZoom_Scroll() Handles sldZoom.Scroll
+    SetCamControl CameraControl_Zoom, sldZoom.Value
+End Sub
+
 End Class
 
 Class CSourceReaderCallback
