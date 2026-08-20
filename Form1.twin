@@ -334,11 +334,78 @@ Class Form1
 
         Return True
     End Function
+    
+    Private Function ResetAdjustmentDefaults() As Boolean
+        Dim pProcAmp As IAMVideoProcAmp
+        Dim hr As Long
+        Dim currentFlags As Long
+        Dim minVal As Long, maxVal As Long, stepVal As Long, defaultVal As Long, currentVal As Long
+        Dim lc As Long
+        On Error Resume Next
+        
+        Set pProcAmp = m_pMediaSource
+        If Err.LastHresult < 0 Then Return False
+
+        pProcAmp.GetRange(VideoProcAmp_Brightness, minVal, maxVal, stepVal, defaultVal, currentFlags)
+        If SUCCEEDED(Err.LastHresult) Then
+            pProcAmp.Set(VideoProcAmp_Brightness, defaultVal, currentFlags)
+            sldBrightness.Value = defaultVal
+        End If
+        pProcAmp.GetRange(VideoProcAmp_Contrast, minVal, maxVal, stepVal, defaultVal, currentFlags)
+        If SUCCEEDED(Err.LastHresult) Then
+            pProcAmp.Set(VideoProcAmp_Contrast, defaultVal, currentFlags)
+            sldContrast.Value = defaultVal
+        End If
+        pProcAmp.GetRange(VideoProcAmp_Saturation, minVal, maxVal, stepVal, defaultVal, currentFlags)
+        If SUCCEEDED(Err.LastHresult) Then
+            pProcAmp.Set(VideoProcAmp_Saturation, defaultVal, currentFlags)
+            sldSaturation.Value = defaultVal
+        End If
+        pProcAmp.GetRange(VideoProcAmp_Hue, minVal, maxVal, stepVal, defaultVal, currentFlags)
+        If SUCCEEDED(Err.LastHresult) Then
+            pProcAmp.Set(VideoProcAmp_Hue, defaultVal, currentFlags)
+            sldHue.Value = defaultVal
+        End If
+        pProcAmp.GetRange(VideoProcAmp_Gain, minVal, maxVal, stepVal, defaultVal, currentFlags)
+        If SUCCEEDED(Err.LastHresult) Then
+            pProcAmp.Set(VideoProcAmp_Gain, defaultVal, currentFlags)
+            sldGain.Value = defaultVal
+        End If
+        pProcAmp.GetRange(VideoProcAmp_Gamma, minVal, maxVal, stepVal, defaultVal, currentFlags)
+        If SUCCEEDED(Err.LastHresult) Then
+            pProcAmp.Set(VideoProcAmp_Gamma, defaultVal, currentFlags)
+            sldGamma.Value = defaultVal
+        End If
+        pProcAmp.GetRange(VideoProcAmp_WhiteBalance, minVal, maxVal, stepVal, defaultVal, currentFlags)
+        If SUCCEEDED(Err.LastHresult) Then
+            pProcAmp.Set(VideoProcAmp_WhiteBalance, defaultVal, currentFlags)
+            sldWhiteBalance.Value = defaultVal
+        End If
+        pProcAmp.GetRange(VideoProcAmp_Sharpness, minVal, maxVal, stepVal, defaultVal, currentFlags)
+        If SUCCEEDED(Err.LastHresult) Then
+            pProcAmp.Set(VideoProcAmp_Sharpness, defaultVal, currentFlags)
+            sldSharpness.Value = defaultVal
+        End If
+        
+        
+        Dim pcc As IAMCameraControl
+        Set pcc = m_pMediaSource
+        If Err.LastHresult < 0 Then Return False
+        
+        pcc.GetRange(CameraControl_Zoom, minVal, maxVal, stepVal, defaultVal, currentFlags)
+        If SUCCEEDED(Err.LastHresult) Then
+            pcc.Set(CameraControl_Zoom, defaultVal, currentFlags)
+            sldZoom.Value = defaultVal
+        End If
+        
+        
+        
+    End Function
     Public Function SetAdjustmentRanges() As Boolean
         Dim pProcAmp As IAMVideoProcAmp
         Dim hr As Long
         Dim currentFlags As Long
-        Dim minVal As Long, maxVal As Long, stepVal As Long, defaultVal As Long
+        Dim minVal As Long, maxVal As Long, stepVal As Long, defaultVal As Long, currentVal As Long
         Dim lc As Long
         On Error Resume Next
         
@@ -350,13 +417,18 @@ Class Form1
             sldBrightness.Enabled = True
             sldBrightness.Min = minVal
             sldBrightness.Max = maxVal
-            sldBrightness.Value = defaultVal
             sldBrightness.SmallChange = stepVal
             lc = (maxVal - minVal) \ 10
             If lc < stepVal Then lc = stepVal
             sldBrightness.LargeChange = If(lc > 1, lc, 1)
             sldBrightness.TickFrequency = lc
-            SetVideoProcAmp VideoProcAmp_Brightness, defaultVal
+            pProcAmp.Get(VideoProcAmp_Brightness, currentVal, currentFlags)
+            If SUCCEEDED(Err.LastHresult) Then
+                sldBrightness.Value = currentVal
+            Else
+                sldBrightness.Value = defaultVal
+                SetVideoProcAmp VideoProcAmp_Brightness, defaultVal
+            End If
         Else
             sldBrightness.Enabled = False
         End If
@@ -366,13 +438,18 @@ Class Form1
             sldContrast.Enabled = True
             sldContrast.Min = minVal
             sldContrast.Max = maxVal
-            sldContrast.Value = defaultVal
             sldContrast.SmallChange = stepVal
             lc = (maxVal - minVal) \ 10
             If lc < stepVal Then lc = stepVal
             sldContrast.LargeChange = If(lc > 1, lc, 1)
             sldContrast.TickFrequency = lc
-            SetVideoProcAmp VideoProcAmp_Contrast, defaultVal
+            pProcAmp.Get(VideoProcAmp_Contrast, currentVal, currentFlags)
+            If SUCCEEDED(Err.LastHresult) Then
+                sldContrast.Value = currentVal
+            Else
+                sldContrast.Value = defaultVal
+                SetVideoProcAmp VideoProcAmp_Contrast, defaultVal
+            End If
         Else
             sldContrast.Enabled = False
         End If
@@ -382,13 +459,18 @@ Class Form1
             sldSaturation.Enabled = True
             sldSaturation.Min = minVal
             sldSaturation.Max = maxVal
-            sldSaturation.Value = defaultVal
             sldSaturation.SmallChange = stepVal
             lc = (maxVal - minVal) \ 10
             If lc < stepVal Then lc = stepVal
             sldSaturation.LargeChange = If(lc > 1, lc, 1)
             sldSaturation.TickFrequency = lc
-            SetVideoProcAmp VideoProcAmp_Saturation, defaultVal
+            pProcAmp.Get(VideoProcAmp_Saturation, currentVal, currentFlags)
+            If SUCCEEDED(Err.LastHresult) Then
+                sldSaturation.Value = currentVal
+            Else
+                sldSaturation.Value = defaultVal
+                SetVideoProcAmp VideoProcAmp_Saturation, defaultVal
+            End If
         Else
             sldSaturation.Enabled = False
         End If
@@ -398,13 +480,18 @@ Class Form1
             sldGain.Enabled = True
             sldGain.Min = minVal
             sldGain.Max = maxVal
-            sldGain.Value = defaultVal
             sldGain.SmallChange = stepVal
             lc = (maxVal - minVal) \ 10
             If lc < stepVal Then lc = stepVal
             sldGain.LargeChange = If(lc > 1, lc, 1)
             sldGain.TickFrequency = lc
-            SetVideoProcAmp VideoProcAmp_Gain, defaultVal
+            pProcAmp.Get(VideoProcAmp_Gain, currentVal, currentFlags)
+            If SUCCEEDED(Err.LastHresult) Then
+                sldGain.Value = currentVal
+            Else
+                sldGain.Value = defaultVal
+                SetVideoProcAmp VideoProcAmp_Gain, defaultVal
+            End If
         Else
             sldGain.Enabled = False
         End If
@@ -414,13 +501,18 @@ Class Form1
             sldHue.Enabled = True
             sldHue.Min = minVal
             sldHue.Max = maxVal
-            sldHue.Value = defaultVal
             sldHue.SmallChange = stepVal
             lc = (maxVal - minVal) \ 10
             If lc < stepVal Then lc = stepVal
             sldHue.LargeChange = If(lc > 1, lc, 1)
             sldHue.TickFrequency = lc
-            SetVideoProcAmp VideoProcAmp_Hue, defaultVal
+            pProcAmp.Get(VideoProcAmp_Hue, currentVal, currentFlags)
+            If SUCCEEDED(Err.LastHresult) Then
+                sldHue.Value = currentVal
+            Else
+                sldHue.Value = defaultVal
+                SetVideoProcAmp VideoProcAmp_Hue, defaultVal
+            End If
         Else
             sldHue.Enabled = False
         End If
@@ -430,13 +522,18 @@ Class Form1
             sldSharpness.Enabled = True
             sldSharpness.Min = minVal
             sldSharpness.Max = maxVal
-            sldSharpness.Value = defaultVal
             sldSharpness.SmallChange = stepVal
             lc = (maxVal - minVal) \ 10
             If lc < stepVal Then lc = stepVal
             sldSharpness.LargeChange = If(lc > 1, lc, 1)
             sldSharpness.TickFrequency = lc
-            SetVideoProcAmp VideoProcAmp_Sharpness, defaultVal
+            pProcAmp.Get(VideoProcAmp_Sharpness, currentVal, currentFlags)
+            If SUCCEEDED(Err.LastHresult) Then
+                sldSharpness.Value = currentVal
+            Else
+                sldSharpness.Value = defaultVal
+                SetVideoProcAmp VideoProcAmp_Sharpness, defaultVal
+            End If
         Else
             sldSharpness.Enabled = False
         End If
@@ -446,13 +543,18 @@ Class Form1
             sldGamma.Enabled = True
             sldGamma.Min = minVal
             sldGamma.Max = maxVal
-            sldGamma.Value = defaultVal
             sldGamma.SmallChange = stepVal
             lc = (maxVal - minVal) \ 10
             If lc < stepVal Then lc = stepVal
             sldGamma.LargeChange = If(lc > 1, lc, 1)
             sldGamma.TickFrequency = lc
-            SetVideoProcAmp VideoProcAmp_Gamma, defaultVal
+            pProcAmp.Get(VideoProcAmp_Gamma, currentVal, currentFlags)
+            If SUCCEEDED(Err.LastHresult) Then
+                sldGamma.Value = currentVal
+            Else
+                sldGamma.Value = defaultVal
+                SetVideoProcAmp VideoProcAmp_Gamma, defaultVal
+            End If
         Else
             sldGamma.Enabled = False
         End If
@@ -462,13 +564,18 @@ Class Form1
             sldWhiteBalance.Enabled = True
             sldWhiteBalance.Min = minVal
             sldWhiteBalance.Max = maxVal
-            sldWhiteBalance.Value = defaultVal
             sldWhiteBalance.SmallChange = stepVal
             lc = (maxVal - minVal) \ 10
             If lc < stepVal Then lc = stepVal
             sldWhiteBalance.LargeChange = If(lc > 1, lc, 1)
             sldWhiteBalance.TickFrequency = lc
-            SetVideoProcAmp VideoProcAmp_WhiteBalance, defaultVal
+            pProcAmp.Get(VideoProcAmp_WhiteBalance, currentVal, currentFlags)
+            If SUCCEEDED(Err.LastHresult) Then
+                sldWhiteBalance.Value = currentVal
+            Else
+                sldWhiteBalance.Value = defaultVal
+                SetVideoProcAmp VideoProcAmp_WhiteBalance, defaultVal
+            End If
         Else
             sldWhiteBalance.Enabled = False
         End If
@@ -482,13 +589,18 @@ Class Form1
             sldZoom.Enabled = True
             sldZoom.Min = minVal
             sldZoom.Max = maxVal
-            sldZoom.Value = defaultVal
             sldZoom.SmallChange = stepVal
             lc = (maxVal - minVal) \ 10
             If lc < stepVal Then lc = stepVal
             sldZoom.LargeChange = If(lc > 1, lc, 1)
             sldZoom.TickFrequency = lc
-            SetCamControl CameraControl_Zoom, defaultVal
+            pcc.Get(CameraControl_Zoom, currentVal, currentFlags)
+            If SUCCEEDED(Err.LastHresult) Then
+                sldZoom.Value = currentVal
+            Else
+                sldZoom.Value = defaultVal
+                SetCamControl CameraControl_Zoom, defaultVal
+            End If
         Else
             sldZoom.Enabled = False
         End If
@@ -657,6 +769,10 @@ End Sub
 
 Private Sub sldZoom_Scroll() Handles sldZoom.Scroll
     SetCamControl CameraControl_Zoom, sldZoom.Value
+End Sub
+
+Private Sub Command2_Click() Handles Command2.Click
+    ResetAdjustmentDefaults
 End Sub
 
 End Class
