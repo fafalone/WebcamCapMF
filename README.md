@@ -6,3 +6,5 @@ Using MediaFoundation to capture webcam stills
 **Project update:** Added options to adjust brightness, contrast, etc, if available, and also zoom, if available.
 
 **Project update:** Video preview now renders to a Direct2D render target.
+
+**Project update:** Fix error when property can be read but not set, fix tab stops/indexes.
