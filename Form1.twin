@@ -317,6 +317,7 @@ Class Form1
     Public Function SetVideoProcAmp(prop As VideoProcAmpProperty, Value As Long) As Boolean
         Dim pProcAmp As IAMVideoProcAmp
         Dim hr As Long
+        On Error Resume Next
 
         Set pProcAmp = m_pMediaSource
         If Err.LastHresult < 0 Then Return False
@@ -327,6 +328,7 @@ Class Form1
         Return True
     End Function
     Public Function SetCamControl(prop As CameraControlProperty, Value As Long) As Boolean
+        On Error Resume Next
         Dim pcc As IAMCameraControl
         Set pcc = m_pMediaSource
         If Err.LastHresult < 0 Then Return False
