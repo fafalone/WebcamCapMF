@@ -2,7 +2,9 @@
 [FormDesignerId("CD32D1B6-6319-4084-A668-8779105D6A12")]
 [PredeclaredId]
 Class Form1
-
+    Implements IFileDialogEvents
+    Implements IFileDialogControlEvents
+    
     Private m_pActivateDevices() As IMFActivate   ' module-level, keeps refs alive for later use  
     Private m_pSourceReader As IMFSourceReader
     Private m_pMediaSource As IMFMediaSource
@@ -10,6 +12,11 @@ Class Form1
     Private m_activeDeviceIndex As Long
     Private m_capturedFrameBytes() As Byte
     Private m_capturedWidth As Long, m_capturedHeight As Long
+    
+    Private fsd As FileSaveDialog
+    Private fdc As IFileDialogCustomize
+    Private strImgQ As String
+    Private dwCk As Long
     
     Private Type tModes
         cx As Long
@@ -145,6 +152,7 @@ Class Form1
     End Function
     
     Private Sub Form_Load() Handles Form.Load
+        strImgQ = "100"
         EnumerateWebcams
         SetWindowSubclass(Picture1.hWnd, AddressOf WebcamSubclassProc, SUBCLASS_ID_WEBCAM, 0)
     End Sub
@@ -433,6 +441,7 @@ Class Form1
                 sldBrightness.Value = defaultVal
                 SetVideoProcAmp VideoProcAmp_Brightness, defaultVal
             End If
+            sldBrightness.ToolTipText = sldBrightness.Value
         Else
             sldBrightness.Enabled = False
         End If
@@ -454,6 +463,7 @@ Class Form1
                 sldContrast.Value = defaultVal
                 SetVideoProcAmp VideoProcAmp_Contrast, defaultVal
             End If
+            sldContrast.ToolTipText = sldContrast.Value
         Else
             sldContrast.Enabled = False
         End If
@@ -475,6 +485,7 @@ Class Form1
                 sldSaturation.Value = defaultVal
                 SetVideoProcAmp VideoProcAmp_Saturation, defaultVal
             End If
+            sldSaturation.ToolTipText = sldSaturation.Value
         Else
             sldSaturation.Enabled = False
         End If
@@ -496,6 +507,7 @@ Class Form1
                 sldGain.Value = defaultVal
                 SetVideoProcAmp VideoProcAmp_Gain, defaultVal
             End If
+            sldGain.ToolTipText = sldGain.Value
         Else
             sldGain.Enabled = False
         End If
@@ -517,6 +529,7 @@ Class Form1
                 sldHue.Value = defaultVal
                 SetVideoProcAmp VideoProcAmp_Hue, defaultVal
             End If
+            sldHue.ToolTipText = sldHue.Value
         Else
             sldHue.Enabled = False
         End If
@@ -538,6 +551,7 @@ Class Form1
                 sldSharpness.Value = defaultVal
                 SetVideoProcAmp VideoProcAmp_Sharpness, defaultVal
             End If
+            sldSharpness.ToolTipText = sldSharpness.Value
         Else
             sldSharpness.Enabled = False
         End If
@@ -559,6 +573,7 @@ Class Form1
                 sldGamma.Value = defaultVal
                 SetVideoProcAmp VideoProcAmp_Gamma, defaultVal
             End If
+            sldGamma.ToolTipText = sldGamma.Value
         Else
             sldGamma.Enabled = False
         End If
@@ -580,6 +595,7 @@ Class Form1
                 sldWhiteBalance.Value = defaultVal
                 SetVideoProcAmp VideoProcAmp_WhiteBalance, defaultVal
             End If
+            sldWhiteBalance.ToolTipText = sldWhiteBalance.Value
         Else
             sldWhiteBalance.Enabled = False
         End If
@@ -605,6 +621,7 @@ Class Form1
                 sldZoom.Value = defaultVal
                 SetCamControl CameraControl_Zoom, defaultVal
             End If
+            sldZoom.ToolTipText = sldZoom.Value
         Else
             sldZoom.Enabled = False
         End If
@@ -662,8 +679,22 @@ Class Form1
         m_capturedWidth = m_pReaderCallback.VideoWidth
         m_capturedHeight = m_pReaderCallback.VideoHeight
     End Sub
+    
     Private Sub cmdSave_Click()
-    SaveCapturedFrame(Text1.Text)
+        If Len(Text1.Text) <= 4 Then
+            Beep
+            Exit Sub
+        End If
+        
+        If Right$(LCase$(Text1.Text), 4) = ".jpg" Then
+            SaveCapturedFrameAsJpg Text1.Text, CSng(strImgQ) / 100
+        ElseIf Right$(LCase$(Text1.Text), 4) = ".png" Then
+            SaveCapturedFrameAsPng Text1.Text
+        ElseIf Right$(LCase$(Text1.Text), 4) = ".bmp" Then
+            SaveCapturedFrame(Text1.Text)
+        Else
+            MsgBox "Supported formats are JPG, PNG, and BMP.", vbCritical Or vbOKOnly, App.Title
+        End If
 End Sub
  
 Public Function SaveCapturedFrame(destPath As String) As Boolean
@@ -693,6 +724,127 @@ Public Function SaveCapturedFrame(destPath As String) As Boolean
 
     Return True
 End Function
+ 
+Public Function SaveCapturedFrameAsJpg(destPath As String, Quality As Single) As Boolean
+    If m_capturedWidth = 0 Or m_capturedHeight = 0 Then Return False
+    On Error Resume Next
+    Dim pFactory As WICImagingFactory
+    Dim hr As Long
+    Set pFactory = New WICImagingFactory
+    If Err.LastHresult < 0 Then Return False
+
+    Dim pSourceBitmap As IWICBitmap
+    Dim stride As Long
+    stride = m_capturedWidth * 4
+    hr = pFactory.CreateBitmapFromMemory(m_capturedWidth, m_capturedHeight, GUID_WICPixelFormat32bppBGR, stride, UBound(m_capturedFrameBytes) + 1, m_capturedFrameBytes(0), pSourceBitmap)
+    If hr < 0 Then Return False
+
+    Dim pStream As IWICStream
+    hr = pFactory.CreateStream(pStream)
+    If hr < 0 Then Return False
+    pStream.InitializeFromFilename(StrPtr(destPath), GENERIC_WRITE)
+    If Err.LastHresult < 0 Then Return False
+
+    Dim pEncoder As IWICBitmapEncoder
+    Set pEncoder = pFactory.CreateEncoder(GUID_ContainerFormatJpeg, ByVal vbNullPtr)
+    If hr < 0 Then Return False
+    pEncoder.Initialize(pStream, WICBitmapEncoderNoCache)
+    If Err.LastHresult < 0 Then Return False
+
+    Dim pFrame As IWICBitmapFrameEncode
+    Dim pPropertyBag As IPropertyBag2
+    pEncoder.CreateNewFrame(pFrame, pPropertyBag)
+    If Err.LastHresult < 0 Then Return False
+
+    Dim propBagOption As PROPBAG2
+    propBagOption.pstrName = StrPtr("ImageQuality")
+    Dim propVal As Variant = Quality
+    pPropertyBag.Write(1, propBagOption, propVal)
+    
+    pFrame.Initialize(pPropertyBag)
+    If Err.LastHresult < 0 Then Return False
+    pFrame.SetSize(m_capturedWidth, m_capturedHeight)
+    If Err.LastHresult < 0 Then Return False
+
+    Dim pixelFormat As UUID
+    pixelFormat = GUID_WICPixelFormat32bppBGR
+    pFrame.SetPixelFormat(pixelFormat)   ' pixelFormat now holds whatever the encoder actually wants
+    If Err.LastHresult < 0 Then Return False
+
+    Dim pConverter As IWICFormatConverter
+    Set pConverter = pFactory.CreateFormatConverter()
+    If hr < 0 Then Return False
+    pConverter.Initialize(pSourceBitmap, pixelFormat, WICBitmapDitherTypeNone, Nothing, 0, WICBitmapPaletteTypeCustom)
+    If Err.LastHresult < 0 Then Return False
+
+    pFrame.WriteSource(pConverter, ByVal vbNullPtr)
+    If Err.LastHresult < 0 Then Return False
+
+    pFrame.Commit()
+    If Err.LastHresult < 0 Then Return False
+    pEncoder.Commit()
+    If Err.LastHresult < 0 Then Return False
+
+    Return True
+End Function
+ 
+Public Function SaveCapturedFrameAsPng(destPath As String) As Boolean
+    If m_capturedWidth = 0 Or m_capturedHeight = 0 Then Return False
+    On Error Resume Next
+    Dim pFactory As WICImagingFactory
+    Dim hr As Long
+    Set pFactory = New WICImagingFactory
+    If Err.LastHresult < 0 Then Return False
+
+    Dim pSourceBitmap As IWICBitmap
+    Dim stride As Long
+    stride = m_capturedWidth * 4
+    hr = pFactory.CreateBitmapFromMemory(m_capturedWidth, m_capturedHeight, GUID_WICPixelFormat32bppBGR, stride, UBound(m_capturedFrameBytes) + 1, m_capturedFrameBytes(0), pSourceBitmap)
+    If hr < 0 Then Return False
+
+    Dim pStream As IWICStream
+    hr = pFactory.CreateStream(pStream)
+    If hr < 0 Then Return False
+    pStream.InitializeFromFilename(StrPtr(destPath), GENERIC_WRITE)
+    If Err.LastHresult < 0 Then Return False
+
+    Dim pEncoder As IWICBitmapEncoder
+    Set pEncoder = pFactory.CreateEncoder(GUID_ContainerFormatJpeg, ByVal vbNullPtr)
+    If hr < 0 Then Return False
+    pEncoder.Initialize(pStream, WICBitmapEncoderNoCache)
+    If Err.LastHresult < 0 Then Return False
+
+    Dim pFrame As IWICBitmapFrameEncode
+    pEncoder.CreateNewFrame(pFrame, ByVal Nothing)
+    If Err.LastHresult < 0 Then Return False
+ 
+    pFrame.Initialize(Nothing)
+    If Err.LastHresult < 0 Then Return False
+    pFrame.SetSize(m_capturedWidth, m_capturedHeight)
+    If Err.LastHresult < 0 Then Return False
+
+    Dim pixelFormat As UUID
+    pixelFormat = GUID_WICPixelFormat32bppBGR
+    pFrame.SetPixelFormat(pixelFormat)   ' pixelFormat now holds whatever the encoder actually wants
+    If Err.LastHresult < 0 Then Return False
+
+    Dim pConverter As IWICFormatConverter
+    Set pConverter = pFactory.CreateFormatConverter()
+    If hr < 0 Then Return False
+    pConverter.Initialize(pSourceBitmap, pixelFormat, WICBitmapDitherTypeNone, Nothing, 0, WICBitmapPaletteTypeCustom)
+    If Err.LastHresult < 0 Then Return False
+
+    pFrame.WriteSource(pConverter, ByVal vbNullPtr)
+    If Err.LastHresult < 0 Then Return False
+
+    pFrame.Commit()
+    If Err.LastHresult < 0 Then Return False
+    pEncoder.Commit()
+    If Err.LastHresult < 0 Then Return False
+
+    Return True
+End Function
+
 Private Sub lstResolutions_DblClick() Handles lstResolutions.DblClick
     If lstResolutions.ListIndex < 0 Then Return
 
@@ -714,18 +866,30 @@ Private Sub lstResolutions_DblClick() Handles lstResolutions.DblClick
 End Sub
 
 Private Sub Command1_Click() Handles Command1.Click
-    Dim fsd As FileSaveDialog
     Set fsd = New FileSaveDialog
     
-    Dim tFilt As COMDLG_FILTERSPEC
-    tFilt.pszName = StrPtr("Bitmap")
-    tFilt.pszSpec = StrPtr("*.bmp")
+    Dim SaveFilter() As COMDLG_FILTERSPEC
+    ReDim SaveFilter(2)
+    SaveFilter(0).pszName = StrPtr("JPEG Image (*.jpg)")
+    SaveFilter(0).pszSpec = StrPtr("*.jpg")
+    SaveFilter(1).pszName = StrPtr("PNG Image (*.png)")
+    SaveFilter(1).pszSpec = StrPtr("*.png")
+    SaveFilter(2).pszName = StrPtr("BMP Image (*.bmp)")
+    SaveFilter(2).pszSpec = StrPtr("*.bmp")
     
-    fsd.SetTitle("Save bitmap as...")
-    fsd.SetFileTypes(1, VarPtr(tFilt))
+    fsd.SetTitle("Save image as...")
+    fsd.SetFileTypes(3, VarPtr(SaveFilter(0)))
     fsd.SetFileTypeIndex(0)
-    fsd.SetDefaultExtension(".bmp")
+    fsd.SetDefaultExtension(".jpg")
     fsd.SetOptions(FOS_STRICTFILETYPES)
+    
+    Set fdc = fsd
+    
+    fdc.AddText 2000, "Image Quality (Percent)"
+    fdc.AddEditBox 3000, "100"
+    
+    fsd.Advise Me, dwCk
+    
     On Error Resume Next
     fsd.Show(Me.hWnd)
     Dim siRes As IShellItem
@@ -741,38 +905,47 @@ End Sub
  
 Private Sub sldBrightness_Scroll() Handles sldBrightness.Scroll
    SetVideoProcAmp VideoProcAmp_Brightness, sldBrightness.Value
+   sldBrightness.ToolTipText = sldBrightness.Value
 End Sub
  
 Private Sub sldContrast_Scroll() Handles sldContrast.Scroll
     SetVideoProcAmp VideoProcAmp_Contrast, sldContrast.Value
+    sldContrast.ToolTipText = sldContrast.Value
 End Sub
 
 Private Sub sldSaturation_Scroll() Handles sldSaturation.Scroll
     SetVideoProcAmp VideoProcAmp_Saturation, sldSaturation.Value
+    sldSaturation.ToolTipText = sldSaturation.Value
 End Sub
 
 Private Sub sldHue_Scroll() Handles sldHue.Scroll
     SetVideoProcAmp VideoProcAmp_Hue, sldHue.Value
+    sldHue.ToolTipText = sldHue.Value
 End Sub
 
 Private Sub sldGain_Scroll() Handles sldGain.Scroll
     SetVideoProcAmp VideoProcAmp_Gain, sldGain.Value
+    sldGain.ToolTipText = sldGain.Value
 End Sub
 
 Private Sub sldSharpness_Scroll() Handles sldSharpness.Scroll
     SetVideoProcAmp VideoProcAmp_Sharpness, sldSharpness.Value
+    sldSharpness.ToolTipText = sldSharpness.Value
 End Sub
 
 Private Sub sldGamma_Scroll() Handles sldGamma.Scroll
     SetVideoProcAmp VideoProcAmp_Gamma, sldGamma.Value
+    sldGamma.ToolTipText = sldGamma.Value
 End Sub
 
 Private Sub sldWhiteBalance_Scroll() Handles sldWhiteBalance.Scroll
     SetVideoProcAmp VideoProcAmp_WhiteBalance, sldWhiteBalance.Value
+    sldWhiteBalance.ToolTipText = sldWhiteBalance.Value
 End Sub
 
 Private Sub sldZoom_Scroll() Handles sldZoom.Scroll
     SetCamControl CameraControl_Zoom, sldZoom.Value
+    sldZoom.ToolTipText = sldZoom.Value
 End Sub
 
 Private Sub Command2_Click() Handles Command2.Click
@@ -847,6 +1020,59 @@ Public Sub RenderLatestFrameD2D()
 
     m_pRenderTarget.EndDraw(ByVal vbNullPtr, ByVal vbNullPtr)
 End Sub
+
+
+ 
+Private Sub IFileDialogEvents_OnFileOk(ByVal pfd As IFileDialog)
+
+Dim lp As LongPtr, sz As Long
+fdc.GetEditBoxText 3000, lp
+sz = LPWSTRtoStr(lp)
+strImgQ = sz
+
+End Sub
+Public Sub IFileDialogEvents_OnFolderChange(ByVal pfd As IFileDialog)
+
+End Sub
+Public Sub IFileDialogEvents_OnFolderChanging(ByVal pfd As IFileDialog, ByVal psiFolder As IShellItem)
+
+End Sub
+
+Public Sub IFileDialogEvents_OnOverwrite(ByVal pfd As IFileDialog, ByVal psi As IShellItem, pResponse As FDE_OVERWRITE_RESPONSE)
+End Sub
+
+Public Sub IFileDialogEvents_OnSelectionChange(ByVal pfd As IFileDialog)
+
+End Sub
+
+Public Sub IFileDialogEvents_OnShareViolation(ByVal pfd As IFileDialog, ByVal psi As IShellItem, pResponse As FDE_SHAREVIOLATION_RESPONSE)
+End Sub
+Public Sub IFileDialogEvents_OnTypeChange(ByVal pfd As IFileDialog)
+Dim nIdx As Long
+pfd.GetFileTypeIndex nIdx
+Debug.Print "TypeChange " & nIdx
+If (nIdx = 2) Or (nIdx = 3) Then
+    fdc.SetControlState 2000, CDCS_INACTIVE
+    fdc.SetControlState 3000, CDCS_INACTIVE
+ElseIf nIdx = 1 Then
+    fdc.SetControlState 2000, CDCS_VISIBLE Or CDCS_ENABLED
+    fdc.SetControlState 3000, CDCS_VISIBLE Or CDCS_ENABLED
+End If
+End Sub
+
+Public Sub IFileDialogControlEvents_OnButtonClicked(ByVal pfdc As IFileDialogCustomize, ByVal dwIDCtl As Long)
+
+End Sub
+Public Sub IFileDialogControlEvents_OnCheckButtonToggled(ByVal pfdc As IFileDialogCustomize, ByVal dwIDCtl As Long, ByVal bChecked As BOOL)
+
+End Sub
+Public Sub IFileDialogControlEvents_OnControlActivating(ByVal pfdc As IFileDialogCustomize, ByVal dwIDCtl As Long)
+End Sub
+Public Sub IFileDialogControlEvents_OnItemSelected(ByVal pfdc As IFileDialogCustomize, ByVal dwIDCtl As Long, ByVal dwIDItem As Long)
+
+End Sub
+
+
 End Class
 
 Class CSourceReaderCallback
