@@ -147,7 +147,6 @@ Class Form1
     Private Sub Form_Load() Handles Form.Load
         EnumerateWebcams
         SetWindowSubclass(Picture1.hWnd, AddressOf WebcamSubclassProc, SUBCLASS_ID_WEBCAM, 0)
-        
     End Sub
     Private Sub Form_Unload(Cancel As Integer)
         StopWebcamStream()
@@ -276,6 +275,9 @@ Class Form1
 
         If videoWidth <> targetWidth Or videoHeight <> targetHeight Then Return False
 
+                                                                                             
+        InitializeD2DTarget(Picture1.hWnd, Picture1.ScaleWidth, Picture1.ScaleHeight, videoWidth, videoHeight)
+        
         m_pReaderCallback.Initialize(m_pSourceReader, pichwnd, videoWidth, videoHeight, videoWidth * 4)
 
          m_pSourceReader.SetStreamSelection(MF_SOURCE_READER_FIRST_VIDEO_STREAM, 1)
@@ -397,10 +399,10 @@ Class Form1
             pcc.Set(CameraControl_Zoom, defaultVal, currentFlags)
             sldZoom.Value = defaultVal
         End If
-        
-        
-        
     End Function
+        
+        
+        
     Public Function SetAdjustmentRanges() As Boolean
         Dim pProcAmp As IAMVideoProcAmp
         Dim hr As Long
@@ -609,7 +611,7 @@ Class Form1
     End Function
     Private Function WebcamSubclassProc(ByVal hWnd As LongPtr, ByVal uMsg As Long, ByVal wParam As LongPtr, ByVal lParam As LongPtr, ByVal uIdSubclass As LongPtr, ByVal dwRefData As LongPtr) As LongPtr
         If uMsg = WM_MF_FRAMEREADY Then
-            RenderLatestFrame()
+            RenderLatestFrameD2D()
             Return 0
         End If
 
@@ -678,7 +680,7 @@ Public Function SaveCapturedFrame(destPath As String) As Boolean
     fh.bfType = &H4D42
     fh.bfOffBits = LenB(Of BITMAPFILEHEADER) + LenB(Of BITMAPINFOHEADER)
     fh.bfSize = fh.bfOffBits + bi.biSizeImage
-
+    Debug.Print m_capturedWidth, bi.biSizeImage, destPath
     Dim iFile As Integer
     iFile = FreeFile
     Open destPath For Binary Access Write As #iFile
@@ -775,6 +777,74 @@ Private Sub Command2_Click() Handles Command2.Click
     ResetAdjustmentDefaults
 End Sub
 
+
+
+
+Private m_pD2DFactory As ID2D1Factory
+Private m_pRenderTarget As ID2D1HwndRenderTarget
+Private m_pD2DBitmap As ID2D1Bitmap
+
+Public Function InitializeD2DTarget(hwndTarget As LongPtr, displayWidth As Long, displayHeight As Long, sourceWidth As Long, sourceHeight As Long) As Boolean
+    Dim hr As Long
+
+    Set m_pD2DBitmap = Nothing
+
+    If m_pRenderTarget Is Nothing Then
+        If m_pD2DFactory Is Nothing Then
+            hr = D2D1CreateFactory(D2D1_FACTORY_TYPE_SINGLE_THREADED, IID_ID2D1Factory, ByVal 0, m_pD2DFactory)
+            If hr < 0 Then Return False
+        End If
+
+        Dim rtProps As D2D1_RENDER_TARGET_PROPERTIES
+        Dim hwndProps As D2D1_HWND_RENDER_TARGET_PROPERTIES
+        hwndProps.hwnd = hwndTarget
+        hwndProps.pixelSize.width = displayWidth
+        hwndProps.pixelSize.Height = displayHeight
+
+        Set m_pRenderTarget = m_pD2DFactory.CreateHwndRenderTarget(rtProps, hwndProps)
+        If hr < 0 Then Return False
+    Else
+        Dim sz1 As D2D1_SIZE_U
+        sz1.width = displayWidth
+        sz1.Height = displayHeight
+        m_pRenderTarget.Resize(sz1)
+        If Err.LastHresult < 0 Then Return False
+    End If
+
+    Dim bmpProps As D2D1_BITMAP_PROPERTIES
+    bmpProps.PixelFormat.Format = DXGI_FORMAT_B8G8R8A8_UNORM
+    bmpProps.PixelFormat.AlphaMode = D2D1_ALPHA_MODE_IGNORE
+
+    Dim sz As D2D1_SIZE_U
+    sz.width = sourceWidth
+    sz.Height = sourceHeight
+
+    Set m_pD2DBitmap = m_pRenderTarget.CreateBitmap(sz, ByVal vbNullPtr, 0, bmpProps)
+    If hr < 0 Then Return False
+
+    Return True
+End Function
+
+Public Sub RenderLatestFrameD2D()
+    Dim frameBytes() As Byte
+    If Not m_pReaderCallback.GetLatestFrame(frameBytes) Then Return
+
+    Dim srcRect As D2D1_RECT_U
+    srcRect.Right = m_pReaderCallback.VideoWidth
+    srcRect.Bottom = m_pReaderCallback.VideoHeight
+
+    m_pD2DBitmap.CopyFromMemory(srcRect, frameBytes(0), m_pReaderCallback.VideoWidth * 4)
+
+    m_pRenderTarget.BeginDraw()
+
+    Dim destRect As D2D1_RECT_F
+    destRect.Right = Picture1.ScaleWidth
+    destRect.Bottom = Picture1.ScaleHeight
+
+    m_pRenderTarget.DrawBitmap(m_pD2DBitmap, destRect, 1.0, D2D1_BITMAP_INTERPOLATION_MODE_LINEAR, ByVal vbNullPtr)
+
+    m_pRenderTarget.EndDraw(ByVal vbNullPtr, ByVal vbNullPtr)
+End Sub
 End Class
 
 Class CSourceReaderCallback
