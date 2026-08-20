@@ -8,3 +8,5 @@ Using MediaFoundation to capture webcam stills
 **Project update:** Video preview now renders to a Direct2D render target.
 
 **Project update:** Fix error when property can be read but not set, fix tab stops/indexes.
+
+**Project update:** Now uses WIC to allow saving as JPG or PNG in addition to BMP. The name picker dialog box for save also implements a customization to add a 'Quality' entry box for JPG.
