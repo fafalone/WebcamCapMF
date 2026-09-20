@@ -3,6 +3,7 @@ Using MediaFoundation to capture webcam stills
 
 <img width="438" height="570" alt="image" src="https://github.com/user-attachments/assets/1478cf2e-22fc-4055-90be-db5e5a7949fa" />
 
+**New project:** I've added WebcamCaptureEngine.twinproj, which uses the alternative IMFCaptureEngine etc, which makes it easy to implement full recording of video and audio. This version can still take advantage of the processing effects like brightness.
 
 **Project update:** Added options to adjust brightness, contrast, etc, if available, and also zoom, if available.
 
